@@ -21,7 +21,7 @@ class ColorBlobTracker:
 
             # Display the thresholded image        
             cv.ShowImage('Tracking', img_th) 
-            
+                        
             if cv.WaitKey(10) == 27: 
                 break 
                 
