@@ -1,8 +1,19 @@
 import cv
 import itertools
 
+class ConnectedComponent:
+    def __init__(self, x1, x2, y1, y2):
+        self.x1 = x1
+        self.x2 = x2
+        self.y1 = y1
+        self.y2 = y2
+        self.count = 0
+
+    def __str__(self):
+        return "%d %d %d %d count %d"%(self.x1, self.x2, self.y1, self.y2, self.count)
+        
 class BlobDetector:
-    ''' http://code.activestate.com/recipes/577225-union-find/ '''
+    ''' Union-find functions taken from http://code.activestate.com/recipes/577225-union-find/ '''
     class _Node:
         def __init__ (self, label):
             self.label = label
@@ -41,13 +52,26 @@ class BlobDetector:
             image[i, 0] = 0
             image[i, image.width-1] = 0          
         
-    def _Relabel(self, img_label, uf):        
+    def _Relabel(self, img_label, uf):
+        roi = {}
+        
         for i in xrange(1, img_label.height):
             for j in xrange(1, img_label.width):
                 if img_label[i, j] == 0:
                     continue
-                img_label[i, j] = self._Find(uf[int(img_label[i, j]-1)]).label
-        
+                    
+                label = self._Find(uf[int(img_label[i, j]-1)]).label
+                img_label[i, j] = label
+                
+                cc = roi.setdefault(label, ConnectedComponent(j, j, i, i))
+                cc.x1 = min(cc.x1, j)
+                cc.x2 = max(cc.x2, j)
+                cc.y1 = min(cc.y1, i)
+                cc.y2 = max(cc.y2, i)
+                cc.count += 1  
+
+        return roi                
+       
     def detect(self, image):
         img_label = cv.CloneMat(image)
         
@@ -90,12 +114,9 @@ class BlobDetector:
                     uf.append(node)
                     label = label + 1
                     
-        sets = [(self._Find(x)).label for x in uf]
-        print "set representatives: ", sets
-            
-        self._Relabel(img_label, uf)                                        
-                
-        cv.SaveImage('label.png', img_label)    
+        # Relabel every labeled pixel with its representative           
+        return self._Relabel(img_label, uf)
+        
                                        
 if __name__=="__main__": 
     detector = BlobDetector()
