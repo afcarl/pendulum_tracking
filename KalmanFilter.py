@@ -4,26 +4,54 @@ import numpy as np
 
 class KalmanFilter: 
     def __init__(self):
-        # Current state estimate
-        self.xhat = 0     
-        # Estimate at t-1
-        self.xhatp = 0
-        # Time at which the last observation has been taken
-        self.last_obs = 0;      
-        self.k = math.sqrt(9.81/0.28)
+        # Process noise (TODO estimate it. ALS technique)
+        self.Q = np.eye(2)*1e-4
 
-    def _StateTransition(self):
-        delta_t = time.time() - self.last_obs
-        #theta_t = delta_t * (self.k*(-1.0*math.radians(45)))*math.sin(self.k*
-        
+        # Observation noise
+        self.R = np.eye(2)*1e-2        
+
+        # Observation model
+        self.H = np.array([[1, 0]])
+
+        # Estimate covariance
+        self.P = np.zeros_like(self.Q)
+
+        # Time at which the last observation has been taken
+        self.last_obs = time.time();
+
+        self.last_theta = math.radians(45)
         
     def predict(self, x, y):
-        alpha = math.atan2(y, x)
-        print '%d %d angle %f'%(x, y, math.degrees(math.pi/2.0 - alpha))
-        return math.pi/2.0 - alpha
+        # Compute time elapsed
+        curr_time = time.time()
+        dt = curr_time - self.last_obs
+        self.last_obs = curr_time
         
-    def update(self):
-        print 'update'
+        # Estimate angle and angular velocity
+        # Note: this transformation from observed
+        # ball center to angle and angular velocity 
+        # should be put into H
+        theta = (math.pi/2.0) - math.atan2(y, x)
+        theta_dot = (theta - self.last_theta)/dt
+        self.last_theta = theta
+        
+        print '%d %d angle %f'%(x, y, math.degrees(theta))
+        
+        # F could also be kept constant given small constant values for dt
+        F = np.array([[1, dt], [(-9.81/0.28)*dt, 1]])
+
+        # Predict        
+        self.x = F*self.x
+        self.P = F*self.P*F.T + self.Q
+        
+        # Update 
+        y = z - self.H*self.x
+        S = self.H*self.P*self.H.T + self.R
+        K = self.P*self.H.T*np.inv(S)
+        self.x = self.x + K*y
+		self.P = self.P - self.K * self.H * self.P
+              
+        return self.x
         
 if __name__=="__main__": 
     filter = KalmanFilter()
