@@ -1,5 +1,6 @@
 import cv
 import time
+import math
 import serial
 
 from blob import BlobDetector
@@ -120,10 +121,9 @@ class ColorBlobTracker:
                 cv.Line(img, (0, int(img.height/2)), (img.width, int(img.height/2)), cv.RGB(0, 0, 0))
                
                 # Apply Kalman filter
-                angle = self.filter.predict(int(center_x - (img.width/2.0)), center_y)
-                
-                self._MoveCameraHead(center_x, center_y, angle)
-
+                xhat = self.filter.predict(int(center_x - (img.width/2.0)), center_y)
+                print 'Estimated angle %f'%math.degrees(xhat[0])
+                #self._MoveCameraHead(center_x, center_y, angle)
                 
             # Display the thresholded image 
             cv.ShowImage('Tracking', img) 
