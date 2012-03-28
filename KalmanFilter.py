@@ -1,3 +1,4 @@
+import cv
 import math
 import time
 import numpy as np 
@@ -14,51 +15,91 @@ class KalmanFilter:
         # Observation noise
         self.R = np.eye(2)*1e-2        
 
-        # Observation model
-        self.H = np.eye(2)
-
         # Estimate covariance
         self.P = np.zeros_like(self.Q)
 
         # Time at which the last observation has been taken
         self.last_obs = time.time();
-
-        self.last_theta = 0
         
-    def predict(self, x, y):
+        # Camera calibration matrix
+        self.K = np.array([[353.526260, 0.000000, 190.146881], 
+           [0.000000, 356.349156, 138.256491],
+           [0.000000, 0.000000, 1.000000]])   
+        
+        # Inverse calibration matrix
+        self.Kinv = np.linalg.inv(self.K)
+        
+        # Matrices for undistort       
+        self.cv_camera_matrix = cv.fromarray(self.K)        
+        self.distortion_coefficients = cv.fromarray(np.matrix([0.053961, -0.153046, 0.001022, 0.017833, 0.0000]))
+        
+        # Camera frame with respect to fixed frame
+        self.Pcf = np.array([0.0, 0.3, 0.48]).T
+        
+        # Length of the string
+        self.l = 0.30
+        
+    def undistort(self, src, dst):
+        '''Undistort the image from distortion coefficients'''
+        cv.Undistort2(src, dst, self.cv_camera_matrix, self.distortion_coefficients)
+    
+    def backproject(self, pitch, yaw, x, y):
+        '''Backproject the (x, y) position'''
+        z = self.Pcf[2]
+        Pbc = np.dot(self.Kinv, np.array([x, y, 1]).T)
+        return np.dot(Pbc, z)
+       
+    def h(self, pitch, yaw):
+        '''Brings the ball position x in camera frame'''
+        Rx = np.array([[1, 0, 0, 0],
+                       [0, math.cos(yaw), math.sin(yaw), 0], 
+                       [0, -1*math.sin(yaw), math.cos(yaw), 0], 
+                       [0, 0, 0, 1]])
+                       
+        Ry = np.array([[math.cos(pitch), 0, -1*math.sin(pitch), 0], 
+                       [0, 1, 0, 0], 
+                       [math.sin(pitch), 0, math.cos(pitch), 0], 
+                       [0, 0, 0, 1]])
+                       
+        theta = self.x[0]
+        Pbf = np.array([l*math.sin(theta), l*math.cos(theta), 0]).T
+
+        return np.dot(np.dot(Ry, Rx).T, Pbf - Pcf)
+        
+    def jacobian(self, pitch, yaw):
+        '''Jacobian of h'''
+        theta = self.x[0]
+        H = np.array([[l*math.cos(yaw)*cos(theta), 0], 
+                      [l*math.sin(pitch)*math.sin(yaw)*math.cos(theta) - l*math.cos(pitch)*math.sin(theta), 0],
+                      [-1*math.sin(yaw)*math.cos(pitch)*l*math.cos(theta) - l*math.sin(pitch)*math.sin(theta), 0]])
+                              
+    def predictUpdate(self, pitch, yaw, cx, cy):
+        '''Execute the predict and update steps'''      
         # Compute time elapsed
         curr_time = time.time()
         dt = curr_time - self.last_obs
         self.last_obs = curr_time
-        
-        # Estimate angle and angular velocity
-        # Note: this transformation from observed
-        # ball center to angle and angular velocity 
-        # should be put into H
-        theta = (math.pi/2.0) - math.atan2(y, x)
-        theta_dot = (theta - self.last_theta)/dt
-        z = np.matrix([[theta], [theta_dot]])
-        self.last_theta = theta
-        
-        print '%d %d angle %f velocity %f'%(x, y, math.degrees(theta), theta_dot)
-        
-        # F could also be kept constant given small constant values for dt
+               
+        # Dynamical model
         F = np.matrix([[1, dt], [(-9.81/0.28)*dt, 1]])
 
-        # Predict      
-        self.x = F*self.x   
-        self.P = F*self.P*F.T + self.Q
+        # Predict
+        self.x = np.dot(F, self.x)
+        self.P = np.dot(F, np.dot(self.P, F.T)) + self.Q
         
-        # Update 
-        y = z - self.H*self.x
-        S = self.H*self.P*self.H.T + self.R
-        K = self.P*self.H.T*linalg.inv(S)
-        self.x = self.x + K*y
-        self.P = self.P - K *self.H*self.P
+        # Update
+        z = self.backproject(pitch, yaw, cx, cy)
+        y = z - self.h(pitch, yaw)
+        
+        H = self.jacobian(pitch, yaw)
+        S = np.dot(H, np.dot(self.P, H.T)) + self.R
+        K = np.dot(self.P, np.dot(H.T, linalg.inv(S)))
+        self.x = self.x + np.dot(K, y)
+        self.P = self.P - np.dot(K, np.dot(H, self.P))
         
         return self.x
         
 if __name__=="__main__": 
     filter = KalmanFilter()
-    filter.predict(-11, 121)        
+    print filter.backproject(math.radians(0), math.radians(0), 0, 0)
     
