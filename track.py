@@ -34,10 +34,10 @@ class ColorBlobTracker:
         
         # Union-Find Connected Comonent Labeling
         self.detector = BlobDetector()
-        
+  
         # Kalman filter
         self.filter = KalmanFilter()
-        
+   
         # Open the serial port to the arduino
         print 'Opening serial port  ...'
         self.serial = serial.Serial('/dev/ttyACM0', 19200)
@@ -87,13 +87,17 @@ class ColorBlobTracker:
         while True: 
             img = cv.QueryFrame( self.capture ) 
 
-            # Smooth the image with a Gaussian Kernel
-            cv.Smooth(img, img, cv.CV_BLUR, 3); 
+            img_undist = cv.CreateImage(cv.GetSize(img), 8, 3)
+            self.filter.undistort(img, img_undist)
+            img = img_undist
 
             # Convert the BGR image to HSV space for easier color thresholding
             img_hsv = cv.CreateImage(cv.GetSize(img), 8, 3) 
             cv.CvtColor(img, img_hsv, cv.CV_BGR2HSV) 
 
+            # Smooth the image with a Gaussian Kernel
+            cv.Smooth(img_hsv, img_hsv, cv.CV_BLUR, 3); 
+            
             # Threshold the HSV image to find yellow objects
             img_th = cv.CreateImage(cv.GetSize(img_hsv), 8, 1) 
             cv.InRangeS(img_hsv, (20, 100, 100), (30, 255, 255), img_th)
@@ -121,17 +125,19 @@ class ColorBlobTracker:
                 cv.Line(img, (0, int(img.height/2)), (img.width, int(img.height/2)), cv.RGB(0, 0, 0))
                
                 # Apply Kalman filter
-                xhat = self.filter.predict(int(center_x - (img.width/2.0)), center_y)
-                print 'Estimated angle %f'%math.degrees(xhat[0])
+                #xhat = self.filter.predict(int(center_x - (img.width/2.0)), center_y)
+                #print 'Estimated angle %f'%math.degrees(xhat[0])
                 #self._MoveCameraHead(center_x, center_y, angle)
                 
+                # Draw predicted object center
+                                
             # Display the thresholded image 
-            cv.ShowImage('Tracking', img) 
+            cv.ShowImage('Tracking', img_undist) 
+                        
             if cv.WaitKey(10) == 27: 
                 break 
                 
         self.serial.close()                
-    
 
 if __name__=="__main__": 
     tracker = ColorBlobTracker()

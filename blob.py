@@ -116,8 +116,7 @@ class BlobDetector:
                     
         # Relabel every labeled pixel with its representative           
         return self._Relabel(img_label, uf)
-        
-                                       
+              
 if __name__=="__main__": 
     detector = BlobDetector()
     img = cv.LoadImageM('test.png', cv.CV_LOAD_IMAGE_GRAYSCALE)
