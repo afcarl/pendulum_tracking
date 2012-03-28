@@ -127,6 +127,10 @@ class ColorBlobTracker:
                 # Apply Kalman filter
                 xhat = self.filter.predictUpdate(self.curr_pitch, self.curr_yaw, center_x, center_y)
                 print math.degrees(xhat[0])
+                fpix = -1*self.filter.state2pixel(self.curr_pitch, self.curr_yaw)
+                print fpix
+                cv.Circle(img, (int(fpix[0]), int(fpix[1])), 2, cv.RGB(0, 255, 0), -1)    
+                            
                 #self._MoveCameraHead(center_x, center_y, angle)
                 
                 # Draw predicted object center

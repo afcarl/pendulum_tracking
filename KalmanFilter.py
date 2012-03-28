@@ -34,7 +34,7 @@ class KalmanFilter:
         self.distortion_coefficients = cv.fromarray(np.matrix([0.053961, -0.153046, 0.001022, 0.017833, 0.0000]))
         
         # Camera frame with respect to fixed frame
-        self.Pcf = np.array([0.0, 0.3, 0.48]).T
+        self.Pcf = np.array([0.0, 0.32, 0.48]).T
         
         # Length of the string
         self.l = 0.30
@@ -43,11 +43,16 @@ class KalmanFilter:
         '''Undistort the image from distortion coefficients'''
         cv.Undistort2(src, dst, self.cv_camera_matrix, self.distortion_coefficients)
     
-    def project(self, pitch, yaw, x, y):
+    def backproject(self, x, y):
         '''Backproject the (x, y) position'''
         z = self.Pcf[2]
         Pbc = np.dot(self.Kinv, np.array([x, y, 1]).T)
         return np.dot(Pbc, z)
+        
+    def state2pixel(self, pitch, yaw):
+        ''' Get pixel location of current state'''         
+        Pbc = self.h(pitch, yaw)
+        return np.dot(self.K,  Pbc)[0:2]
        
     def h(self, pitch, yaw):
         '''Brings the ball position x in camera frame'''
@@ -88,7 +93,7 @@ class KalmanFilter:
         self.P = np.dot(F, np.dot(self.P, F.T)) + self.Q
         
         # Update
-        z = self.project(pitch, yaw, cx, cy)
+        z = self.backproject(cx, cy)
         y = z - self.h(pitch, yaw)
         
         H = self.jacobian(pitch, yaw)
